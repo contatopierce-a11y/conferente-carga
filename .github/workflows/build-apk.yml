@@ -20,8 +20,24 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Preparar Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Configurar Android SDK do GitHub
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          echo "/usr/local/lib/android/sdk/cmdline-tools/16.0/bin" >> "$GITHUB_PATH"
+          echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
+
+      - name: Verificar Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          which sdkmanager
+          sdkmanager --version
+
+      - name: Instalar componentes Android
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-37" "build-tools;35.0.0"
 
       - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -31,13 +47,8 @@ jobs:
       - name: Descompactar projeto
         run: |
           unzip -o ConferenteCarga-V0.3.zip -d projeto
-          echo "Estrutura encontrada:"
+          echo "Arquivos do projeto:"
           find projeto -maxdepth 3 -type f | head -100
-
-      - name: Instalar componentes Android
-        run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-37" "build-tools;35.0.0"
 
       - name: Compilar APK
         working-directory: projeto/ConferenteCarga
