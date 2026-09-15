@@ -1,0 +1,48 @@
+name: Gerar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+
+      - name: Descompactar projeto
+        run: |
+          unzip -o ConferenteCarga-V0.3.zip -d projeto
+          ls -la projeto
+          find projeto -maxdepth 3 -type f | head -100
+
+      - name: Instalar Android SDK
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-37" "build-tools;35.0.0"
+
+      - name: Compilar APK
+        working-directory: projeto/ConferenteCarga
+        run: |
+          gradle assembleDebug --stacktrace
+
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConferenteCarga-APK
+          path: projeto/ConferenteCarga/app/build/outputs/apk/debug/app-debug.apk
