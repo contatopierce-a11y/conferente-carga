@@ -20,6 +20,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+
       - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -28,10 +31,10 @@ jobs:
       - name: Descompactar projeto
         run: |
           unzip -o ConferenteCarga-V0.3.zip -d projeto
-          ls -la projeto
+          echo "Estrutura encontrada:"
           find projeto -maxdepth 3 -type f | head -100
 
-      - name: Instalar Android SDK
+      - name: Instalar componentes Android
         run: |
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-37" "build-tools;35.0.0"
