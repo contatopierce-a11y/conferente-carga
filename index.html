@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Conferente de Carga</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#0b1020;color:#f8fafc}
+header{padding:18px 16px 12px;background:#111827;position:sticky;top:0;z-index:5;border-bottom:1px solid #263244}
+h1{font-size:22px;margin:0 0 4px}.sub{color:#94a3b8;font-size:13px}
+main{max-width:720px;margin:auto;padding:14px 14px 100px}.card{background:#111827;border:1px solid #263244;border-radius:18px;padding:16px;margin:12px 0}
+.row{display:flex;gap:10px;align-items:center}.between{justify-content:space-between}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label{display:block;color:#cbd5e1;font-size:13px;margin:9px 0 5px}
+input,button{width:100%;border-radius:12px;border:1px solid #334155;background:#0f172a;color:#fff;padding:12px;font-size:15px}
+button{font-weight:700;cursor:pointer}.primary{background:#2563eb;border-color:#2563eb}.success{background:#15803d;border-color:#15803d}.danger{background:#991b1b;border-color:#991b1b}.muted{background:#1e293b}
+.stat{font-size:28px;font-weight:800}.small{font-size:12px;color:#94a3b8}.ok{color:#4ade80}.bad{color:#fb7185}
+#preview{width:100%;aspect-ratio:4/3;background:#020617;border-radius:16px;object-fit:cover;display:block}
+.scanbox{position:relative}.scanbox:after{content:"";position:absolute;left:12%;right:12%;top:50%;height:2px;background:#60a5fa;box-shadow:0 0 12px #60a5fa}
+.hidden{display:none!important}.stop{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1e293b}.stop:last-child{border-bottom:0}
+.badge{padding:5px 9px;border-radius:999px;background:#1e293b;font-size:12px}.nav{position:fixed;bottom:0;left:0;right:0;background:#0f172a;border-top:1px solid #263244;padding:9px;display:flex;gap:8px;z-index:10}.nav button{font-size:12px;padding:10px}
+#log{max-height:190px;overflow:auto;font-size:12px;color:#cbd5e1}.logline{padding:7px 0;border-bottom:1px solid #1e293b}
+</style>
+</head>
+<body>
+<header><h1>📦 Conferente de Carga</h1><div class="sub">Conferência por parada • offline no navegador</div></header>
+<main>
+<section id="home" class="page">
+<div class="card"><h2>Nova rota</h2>
+<div class="grid"><div><label>Paradas</label><input id="stopCount" type="number" min="1" max="110" value="45"></div>
+<div><label>Pacotes esperados</label><input id="expectedTotal" type="number" min="0" value="60"></div></div>
+<label>Nome da rota</label><input id="routeName" placeholder="Ex.: Rota da manhã">
+<button class="primary" onclick="createRoute()">Criar rota</button></div>
+<div class="card"><h2>Como funciona</h2>
+<p class="small">O app identifica a parada pelo padrão da etiqueta pequena, como <b>#NX813_7</b> ou <b>#NX813_31</b>. O mesmo pacote não é contado duas vezes. O resultado de faltas só é fechado em <b>Finalizar conferência</b>.</p></div>
+</section>
+
+<section id="scanner" class="page hidden">
+<div class="card">
+  <div class="row between">
+    <div><h2 style="margin:0">Scanner</h2><span class="small" id="routeLabel"></span></div>
+    <span class="badge" id="progressBadge">0/0</span>
+  </div>
+  <div class="scanbox" style="margin-top:12px"><video id="preview" autoplay muted playsinline></video></div>
+  <div class="grid" style="margin-top:10px">
+    <button class="primary" onclick="startCamera()">📷 Iniciar câmera</button>
+    <button class="muted" onclick="stopCamera()">⏹ Parar</button>
+  </div>
+  <div class="grid" style="margin-top:8px">
+    <button class="muted" onclick="toggleTorch()">🔦 Lanterna</button>
+    <button class="muted" onclick="toggleZoom()">🔍 Zoom</button>
+  </div>
+  <div class="grid" style="margin-top:8px">
+    <button class="success" onclick="scanBarcodeNow()">▣ Ler código</button>
+    <button class="muted" onclick="captureOCR()">🔤 Ler etiqueta</button>
+  </div>
+  <label>Leitura manual / teste</label>
+  <input id="manualText" placeholder="Ex.: ETIQUETA #NX813_31">
+  <input id="packageId" placeholder="ID único do pacote (opcional)" style="margin-top:7px">
+  <button class="success" onclick="registerManual()" style="margin-top:8px">✓ Registrar pacote</button>
+  <p class="small" id="scanStatus">Aguardando leitura.</p>
+</div>
+<div class="card">
+  <div class="grid">
+    <div><div class="small">Encontrados</div><div class="stat" id="found">0</div></div>
+    <div><div class="small">Restantes</div><div class="stat" id="remaining">0</div></div>
+  </div>
+  <button class="danger" onclick="finishRoute()" style="margin-top:10px">Finalizar conferência</button>
+</div>
+<div class="card"><h3>Última leitura</h3><div id="lastRead" class="small">Nenhuma.</div></div>
+<div class="card">
+  <h3>Configurações rápidas</h3>
+  <div class="grid">
+    <button class="muted" onclick="toggleSound()">🔊 Som: <span id="soundState">ON</span></button>
+    <button class="muted" onclick="testFeedback()">📳 Testar vibração</button>
+  </div>
+  <p class="small">A câmera precisa de HTTPS. O leitor usa o recurso nativo do navegador ou ZXing como alternativa. O botão "Ler etiqueta" usa OCR para tentar reconhecer textos como #NX813_31.</p>
+</div>
+</section>
+
+<section id="report" class="page hidden">
+<div class="card"><h2>Resultado</h2><div id="finalSummary"></div></div>
+<div class="card"><h3>Paradas</h3><div id="stopList"></div></div>
+<div class="card"><h3>Registro das leituras</h3><div id="log"></div></div>
+<div class="grid"><button class="muted" onclick="exportReport()">📄 Exportar relatório</button><button class="primary" onclick="newRoute()">🔄 Nova rota</button></div>
+</section>
+</main>
+<nav class="nav"><button onclick="show('home')">🏠 Rota</button><button onclick="show('scanner')">📷 Conferir</button><button onclick="show('report')">📊 Resultado</button></nav>
+
+<script>
+let route=null,stream=null,detector=null,scanning=false,lastBarcode="",lastBarcodeAt=0;
+let torchOn=false,zoomOn=false,soundOn=true,zxingReader=null,zxingControls=null,ocrBusy=false;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem("conferenteCarga",JSON.stringify(route))}
+function load(){try{route=JSON.parse(localStorage.getItem("conferenteCarga"))}catch(e){route=null}if(route)updateUI()}
+function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(id).classList.remove("hidden");if(id==="scanner")updateUI();if(id==="report")renderReport()}
+function createRoute(){const stops=Math.max(1,Math.min(110,+$("stopCount").value||45)),total=Math.max(0,+$("expectedTotal").value||0);route={name:$("routeName").value||"Rota sem nome",stops,expectedTotal:total,expectedByStop:{},foundByStop:{},seen:{},log:[],finished:false,createdAt:new Date().toISOString()};for(let i=1;i<=stops;i++)route.expectedByStop[i]=0;save();show("scanner");$("scanStatus").textContent="Rota criada. Pronto para conferir.";updateUI()}
+function newRoute(){stopCamera();localStorage.removeItem("conferenteCarga");route=null;show("home")}
+function parseStop(text){const m=(text||"").match(/#\s*NX\s*813\s*[_-]?\s*(\d{1,3})\b/i);if(!m)return null;const n=Number(m[1]);return route&&n>=1&&n<=route.stops?n:null}
+function feedback(ok=true){if(navigator.vibrate)navigator.vibrate(ok?[60,40,60]:[180]);if(!soundOn)return;try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const ac=new C(),o=ac.createOscillator(),g=ac.createGain();o.frequency.value=ok?880:220;g.gain.value=.08;o.connect(g);g.connect(ac.destination);o.start();o.stop(ac.currentTime+(ok?.10:.20))}catch(e){}}
+function registerPackage(text,id){if(!route)return alert("Crie uma rota primeiro.");if(route.finished)return alert("A conferência já foi finalizada.");const stop=parseStop(text);if(!stop){feedback(false);$("scanStatus").textContent="❌ Não encontrei uma parada válida no padrão #NX813_<n>.";return false}const unique=(id||text||"").trim();if(unique&&route.seen[unique]){feedback(false);$("scanStatus").textContent="⚠️ Pacote duplicado — não foi contado novamente.";return false}if(unique)route.seen[unique]=true;route.foundByStop[stop]=(route.foundByStop[stop]||0)+1;route.log.unshift({time:new Date().toLocaleTimeString(),stop,id:unique||"(sem ID)",text:String(text||"")});$("lastRead").textContent=`Parada ${stop} • ${unique||"ID não informado"}`;$("scanStatus").textContent=`✅ Pacote registrado na parada ${stop}.`;feedback(true);save();updateUI();return true}
+function registerManual(){const text=$("manualText").value.trim(),id=$("packageId").value.trim();if(registerPackage(text,id)){$("manualText").value="";$("packageId").value=""}}
+function updateUI(){if(!route)return;const found=Object.values(route.foundByStop).reduce((a,b)=>a+b,0);$("routeLabel").textContent=`${route.name} • ${route.stops} paradas`;$("found").textContent=found;$("remaining").textContent=Math.max(0,route.expectedTotal-found);$("progressBadge").textContent=`${found}/${route.expectedTotal}`}
+function setExpected(stop,count){if(!route)return;route.expectedByStop[stop]=Math.max(0,+count||0);save();renderReport()}
+function finishRoute(){if(!route)return;route.finished=true;save();stopCamera();show("report")}
+function renderReport(){if(!route)return;const found=Object.values(route.foundByStop).reduce((a,b)=>a+b,0),missing=Math.max(0,route.expectedTotal-found);$("finalSummary").innerHTML=`<div class="grid"><div><div class="small">Esperados</div><div class="stat">${route.expectedTotal}</div></div><div><div class="small">Encontrados</div><div class="stat">${found}</div></div></div><p class="${missing?'bad':'ok'}"><b>${missing?'⚠️ Faltam '+missing+' pacote(s)':'✅ Conferência completa'}</b></p><p class="small">Informe os esperados por parada para obter as faltas detalhadas.</p>`;let h="";for(let i=1;i<=route.stops;i++){const e=route.expectedByStop[i]||0,g=route.foundByStop[i]||0,m=Math.max(0,e-g);h+=`<div class="stop"><div><b>Parada ${i}</b><div class="small">Encontrados: ${g}${e?' • Esperados: '+e+' • Faltam: '+m:''}</div></div><input type="number" min="0" value="${e}" style="width:90px" onchange="setExpected(${i},this.value)"></div>`}$("stopList").innerHTML=h;$("log").innerHTML=route.log.length?route.log.map(x=>`<div class="logline">${x.time} — parada <b>${x.stop}</b> — ${escapeHtml(x.id)}</div>`).join(""):"Nenhuma leitura."}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function exportReport(){if(!route)return;const found=Object.values(route.foundByStop).reduce((a,b)=>a+b,0);let out=`CONFERENTE DE CARGA\nRota: ${route.name}\nEsperados: ${route.expectedTotal}\nEncontrados: ${found}\nData: ${new Date().toLocaleString()}\n\nPARADAS\n`;for(let i=1;i<=route.stops;i++){const e=route.expectedByStop[i]||0,g=route.foundByStop[i]||0;out+=`Parada ${i}: ${g}/${e} — faltam ${Math.max(0,e-g)}\n`}out+="\nLEITURAS\n"+route.log.map(x=>`${x.time} | parada ${x.stop} | ${x.id}`).join("\n");const blob=new Blob([out],{type:"text/plain;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="relatorio-conferencia.txt";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+async function startCamera(){if(!route)return alert("Crie uma rota primeiro.");if(!navigator.mediaDevices?.getUserMedia)return alert("Abra esta página em HTTPS (GitHub Pages) para liberar a câmera.");try{stopCamera();stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}}});$("preview").srcObject=stream;const track=stream.getVideoTracks()[0],caps=track.getCapabilities?track.getCapabilities():{};if("BarcodeDetector"in window){try{detector=new BarcodeDetector({formats:["qr_code","code_128","code_39","code_93","ean_13","ean_8","upc_a","upc_e","itf","data_matrix","pdf417"]});scanning=true;scanLoop()}catch(e){detector=null}}$("scanStatus").textContent=detector?"📷 Câmera ativa. Leitura automática ligada.":"📷 Câmera ativa. Use 'Ler código' ou 'Ler etiqueta'."}catch(e){$("scanStatus").textContent="❌ Câmera bloqueada: "+e.message;alert("Permita a câmera no Chrome e abra por HTTPS.")}}
+async function scanLoop(){if(!scanning||!detector)return;try{const codes=await detector.detect($("preview"));for(const c of codes){const raw=c.rawValue||"";if(!raw)continue;const now=Date.now();if(raw===lastBarcode&&now-lastBarcodeAt<1500)continue;lastBarcode=raw;lastBarcodeAt=now;registerPackage(raw,raw)}}catch(e){}if(scanning)requestAnimationFrame(scanLoop)}
+async function scanBarcodeNow(){if(!stream)return startCamera();if("BarcodeDetector"in window){try{if(!detector)detector=new BarcodeDetector({formats:["qr_code","code_128","code_39","code_93","ean_13","ean_8","upc_a","upc_e","itf","data_matrix","pdf417"]});const codes=await detector.detect($("preview"));if(!codes.length){$("scanStatus").textContent="Nenhum código encontrado. Aproxime e tente novamente.";return}registerPackage(codes[0].rawValue,codes[0].rawValue);return}catch(e){}}await loadZXing();if(zxingReader)startZXing();else $("scanStatus").textContent="Leitor de código indisponível neste navegador. Use OCR ou leitura manual."}
+async function loadZXing(){if(window.ZXingBrowser)return;await new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js";s.onload=resolve;s.onerror=reject;document.head.appendChild(s)}).catch(()=>{});if(window.ZXingBrowser)zxingReader=new ZXingBrowser.BrowserMultiFormatReader()}
+function startZXing(){if(!zxingReader||!stream)return;try{if(zxingControls)zxingControls.stop();zxingControls=zxingReader.decodeFromVideoDevice(null,$("preview"),(result)=>{if(result){const raw=result.getText(),now=Date.now();if(raw!==lastBarcode||now-lastBarcodeAt>=1500){lastBarcode=raw;lastBarcodeAt=now;registerPackage(raw,raw)}}})}catch(e){$("scanStatus").textContent="Falha no leitor alternativo."}}
+async function toggleTorch(){if(!stream)return alert("Inicie a câmera primeiro.");const track=stream.getVideoTracks()[0],caps=track.getCapabilities?track.getCapabilities():{};if(!caps.torch)return alert("A lanterna não pode ser controlada por este navegador/celular.");torchOn=!torchOn;try{await track.applyConstraints({advanced:[{torch:torchOn}]})}catch(e){torchOn=!torchOn;alert("Não foi possível controlar a lanterna.")}}
+async function toggleZoom(){if(!stream)return alert("Inicie a câmera primeiro.");const track=stream.getVideoTracks()[0],caps=track.getCapabilities?track.getCapabilities():{};if(!caps.zoom)return alert("O zoom da câmera não é controlável pelo navegador.");zoomOn=!zoomOn;try{await track.applyConstraints({advanced:[{zoom:zoomOn?Math.min(caps.zoom.max,caps.zoom.min+2):caps.zoom.min}]})}catch(e){zoomOn=!zoomOn}}
+function captureOCR(){if(!stream)return alert("Inicie a câmera primeiro.");if(ocrBusy)return;ocrBusy=true;$("scanStatus").textContent="🔤 Processando etiqueta…";const canvas=document.createElement("canvas"),v=$("preview");canvas.width=v.videoWidth||1280;canvas.height=v.videoHeight||720;canvas.getContext("2d").drawImage(v,0,0,canvas.width,canvas.height);const img=canvas.toDataURL("image/jpeg",.9);if(window.Tesseract)runOCR(img);else loadTesseract().then(()=>runOCR(img))}
+async function loadTesseract(){return new Promise((resolve,reject)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";s.onload=resolve;s.onerror=reject;document.head.appendChild(s)}).catch(()=>{})}
+async function runOCR(img){try{if(!window.Tesseract)throw new Error("OCR indisponível");const {data}=await Tesseract.recognize(img,"eng",{logger:m=>{if(m.status==="recognizing text")$("scanStatus").textContent=`🔤 OCR ${Math.round((m.progress||0)*100)}%…`}});const text=(data.text||"").replace(/\s+/g," ").trim(),m=text.match(/#?\s*NX\s*813\s*[_-]?\s*(\d{1,3})/i);if(m){const normalized=`#NX813_${m[1]}`;$("manualText").value=normalized;$("scanStatus").textContent=`🔤 Encontrei ${normalized}.`;if(confirm(`Encontrei ${normalized}. Registrar este pacote?`))registerPackage(normalized,normalized)}else{$("manualText").value=text;$("scanStatus").textContent=text?`🔤 Texto encontrado: ${text}`:"Não consegui reconhecer a etiqueta. Aproxime mais."}}catch(e){$("scanStatus").textContent="❌ Falha no OCR. Tente novamente."}finally{ocrBusy=false}}
+function stopCamera(){scanning=false;if(zxingControls){try{zxingControls.stop()}catch(e){}zxingControls=null}if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}detector=null;torchOn=false;zoomOn=false;if($("preview"))$("preview").srcObject=null}
+function toggleSound(){soundOn=!soundOn;$("soundState").textContent=soundOn?"ON":"OFF"}
+function testFeedback(){feedback(true)}
+load();
+</script>
+</body>
+</html>
